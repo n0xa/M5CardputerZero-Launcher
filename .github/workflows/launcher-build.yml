@@ -22,7 +22,8 @@ jobs:
     - name: Install cross-compilation toolchain
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu dpkg-dev
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu dpkg-dev \
+          libfreetype-dev libpng-dev
 
     - name: Install Python build dependencies
       run: pip install scons parse requests tqdm
