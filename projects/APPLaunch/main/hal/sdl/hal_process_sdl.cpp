@@ -32,6 +32,17 @@ void hal_process_kill(int pid, int grace_ms)
     (void)pid; (void)grace_ms;
 }
 
+hal_pid_t hal_process_spawn(const char *exec_path)
+{
+    (void)exec_path;
+    return -1;
+}
+
+void hal_process_stop(hal_pid_t pid)
+{
+    (void)pid;
+}
+
 #else
 #include <unistd.h>
 #include <sys/wait.h>
