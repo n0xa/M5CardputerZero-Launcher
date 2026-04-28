@@ -7,6 +7,22 @@
 #include <signal.h>
 #include <sys/types.h>
 
+#include <stdio.h>
+
+#ifndef DT_REG
+#define DT_REG  8
+#define DT_DIR  4
+#define DT_UNKNOWN 0
+#endif
+
+// MinGW struct dirent has no d_type field. Patch it in before anyone includes <dirent.h>.
+#include <dirent.h>
+#ifndef _DIRENT_WIN32_PATCHED
+#define _DIRENT_WIN32_PATCHED
+static unsigned char _win32_dirent_dtype = DT_REG;
+#define d_type d_name[0] ? (_win32_dirent_dtype) : (_win32_dirent_dtype)
+#endif
+
 #ifndef _WIN32_STUBS
 #define _WIN32_STUBS
 
