@@ -1,0 +1,79 @@
+name: Build APPLauncher
+
+on:
+  push:
+    branches: [master, ci/**]
+    paths:
+      - 'projects/APPLaunch/**'
+      - 'SDK/**'
+      - '.github/workflows/launcher-build.yml'
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install cross-compilation toolchain
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu dpkg-dev
+
+    - name: Install Python build dependencies
+      run: pip install scons parse requests tqdm
+
+    - name: Build APPLauncher (cross-compile aarch64)
+      run: |
+        cd projects/APPLaunch
+        rm -rf build dist
+        export CardputerZero=y
+        export CONFIG_REPO_AUTOMATION=y
+        scons -j$(nproc)
+
+    - name: Build .deb package
+      run: |
+        cd projects/APPLaunch/tools
+        python3 llm_pack.py
+
+    - name: Collect artifacts
+      run: |
+        mkdir -p artifacts
+        cp projects/APPLaunch/dist/M5CardputerZero-APPLaunch artifacts/
+        cp projects/APPLaunch/tools/*.deb artifacts/
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: applaunch-arm64
+        path: artifacts/
+
+  prerelease:
+    needs: build
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/ci/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: applaunch-arm64
+        path: artifacts/
+
+    - name: Generate release tag
+      id: tag
+      run: echo "tag=launcher-$(date +'%Y%m%d-%H%M%S')" >> "$GITHUB_OUTPUT"
+
+    - name: Create prerelease
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.tag.outputs.tag }}
+        name: "APPLauncher Prerelease ${{ steps.tag.outputs.tag }}"
+        prerelease: true
+        generate_release_notes: true
+        files: |
+          artifacts/*.deb
+          artifacts/M5CardputerZero-APPLaunch
