@@ -55,7 +55,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libsdl2-dev libsdl2-image-dev libfreetype-dev pkg-config nlohmann-json3-dev
+        sudo apt-get install -y libsdl2-dev libsdl2-image-dev libfreetype-dev libinput-dev libxkbcommon-dev libudev-dev pkg-config nlohmann-json3-dev
     - name: Build
       run: |
         cd projects/CardputerZero-Emulator
