@@ -19,8 +19,9 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Init submodules
-      run: git submodule update --init --recursive projects/CardputerZero-Emulator/lib/lvgl
+    - name: Clone LVGL
+      run: |
+        git clone --depth 1 --branch v9.5.0 https://github.com/lvgl/lvgl.git projects/CardputerZero-Emulator/lib/lvgl
     - name: Install dependencies
       run: brew install sdl2 sdl2_image freetype pkg-config nlohmann-json
     - name: Build
@@ -48,8 +49,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Init submodules
-      run: git submodule update --init --recursive projects/CardputerZero-Emulator/lib/lvgl
+    - name: Clone LVGL
+      run: |
+        git clone --depth 1 --branch v9.5.0 https://github.com/lvgl/lvgl.git projects/CardputerZero-Emulator/lib/lvgl
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -94,8 +96,9 @@ jobs:
           make
           git
     - uses: actions/checkout@v4
-    - name: Init submodules
-      run: git submodule update --init --recursive projects/CardputerZero-Emulator/lib/lvgl
+    - name: Clone LVGL
+      run: |
+        git clone --depth 1 --branch v9.5.0 https://github.com/lvgl/lvgl.git projects/CardputerZero-Emulator/lib/lvgl
     - name: Build
       run: |
         cd projects/CardputerZero-Emulator
@@ -124,8 +127,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Init submodules
-      run: git submodule update --init --recursive projects/CardputerZero-Emulator/lib/lvgl
+    - name: Clone LVGL
+      run: |
+        git clone --depth 1 --branch v9.5.0 https://github.com/lvgl/lvgl.git projects/CardputerZero-Emulator/lib/lvgl
     - name: Setup Emscripten
       uses: mymindstorm/setup-emsdk@v14
       with:
