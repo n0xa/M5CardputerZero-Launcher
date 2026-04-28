@@ -19,6 +19,8 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
     - name: Install dependencies
       run: brew install sdl2 sdl2_image freetype pkg-config nlohmann-json
     - name: Build
@@ -46,6 +48,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -90,6 +94,8 @@ jobs:
           make
           git
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
     - name: Build
       run: |
         cd projects/CardputerZero-Emulator
@@ -118,10 +124,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
     - name: Setup Emscripten
       uses: mymindstorm/setup-emsdk@v14
       with:
-        version: 3.1.73
+        version: 3.1.74
     - name: Build
       run: |
         cd projects/CardputerZero-Emulator

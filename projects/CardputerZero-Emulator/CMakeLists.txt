@@ -10,7 +10,6 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 set(APPLAUNCH  ${REPO_ROOT}/projects/APPLaunch/main)
 set(USERDEMO   ${REPO_ROOT}/projects/UserDemo/main)
-set(LVGL_DIR   ${REPO_ROOT}/SDK/github_source/lvgl/lvgl_9_5/lvgl)
 
 # ---------------------------------------------------------------------------
 # SDL2 + Freetype (skip for Emscripten — uses its own ports)
@@ -80,7 +79,7 @@ if(NOT EMSCRIPTEN)
 endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-add_subdirectory(${LVGL_DIR} ${CMAKE_CURRENT_BINARY_DIR}/lvgl)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/lvgl ${CMAKE_CURRENT_BINARY_DIR}/lvgl)
 
 # ---------------------------------------------------------------------------
 # Helper: common link libraries for app targets
@@ -133,7 +132,7 @@ add_library(APPLaunch SHARED
 target_include_directories(APPLaunch PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/vendor
-    ${LVGL_DIR}/..
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib
     ${APPLAUNCH}/ui
     ${APPLAUNCH}/include
     ${APPLAUNCH}
@@ -165,7 +164,7 @@ file(GLOB_RECURSE USERDEMO_UI_C ${USERDEMO}/ui/*.c)
 add_library(UserDemo SHARED ${USERDEMO_UI_C})
 target_include_directories(UserDemo PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${LVGL_DIR}/..
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib
     ${USERDEMO}/ui
     ${USERDEMO}/include
     ${USERDEMO}
@@ -211,7 +210,7 @@ endif()
 target_include_directories(cardputer-emu PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${LVGL_DIR}/..
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib
 )
 if(NOT MSVC)
     target_compile_options(cardputer-emu PRIVATE -Wno-c++11-narrowing)
@@ -324,7 +323,7 @@ if(EMSCRIPTEN)
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/vendor
-        ${LVGL_DIR}/..
+        ${CMAKE_CURRENT_SOURCE_DIR}/lib
         ${APPLAUNCH}/ui
         ${APPLAUNCH}/include
         ${APPLAUNCH}
