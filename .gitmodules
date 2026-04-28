@@ -4,3 +4,4 @@
 [submodule "projects/CardputerZero-Emulator/lib/lvgl"]
 	path = projects/CardputerZero-Emulator/lib/lvgl
 	url = https://github.com/lvgl/lvgl.git
+	shallow = true

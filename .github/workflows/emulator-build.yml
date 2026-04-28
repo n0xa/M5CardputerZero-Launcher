@@ -19,8 +19,8 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+    - name: Init submodules
+      run: git submodule update --init --recursive --depth 1 projects/CardputerZero-Emulator/lib/lvgl
     - name: Install dependencies
       run: brew install sdl2 sdl2_image freetype pkg-config nlohmann-json
     - name: Build
@@ -48,8 +48,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+    - name: Init submodules
+      run: git submodule update --init --recursive --depth 1 projects/CardputerZero-Emulator/lib/lvgl
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -94,8 +94,8 @@ jobs:
           make
           git
     - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+    - name: Init submodules
+      run: git submodule update --init --recursive --depth 1 projects/CardputerZero-Emulator/lib/lvgl
     - name: Build
       run: |
         cd projects/CardputerZero-Emulator
@@ -124,8 +124,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+    - name: Init submodules
+      run: git submodule update --init --recursive --depth 1 projects/CardputerZero-Emulator/lib/lvgl
     - name: Setup Emscripten
       uses: mymindstorm/setup-emsdk@v14
       with:
