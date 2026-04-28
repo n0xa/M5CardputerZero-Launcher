@@ -2,12 +2,13 @@ name: Build Emulator
 
 on:
   push:
-    branches: [master]
+    branches: [master, ci/**]
     paths:
       - 'projects/CardputerZero-Emulator/**'
       - 'projects/APPLaunch/**'
       - 'projects/UserDemo/**'
       - 'SDK/**'
+      - '.github/workflows/emulator-build.yml'
   pull_request:
     branches: [master]
   workflow_dispatch:
