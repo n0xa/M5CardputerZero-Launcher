@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <cstring>
 #include <cstdio>
+#include <cstdlib>
 #include <chrono>
 #include <thread>
 #include <linux/input.h>
