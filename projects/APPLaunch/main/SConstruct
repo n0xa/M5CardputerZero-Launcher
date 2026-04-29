@@ -6,8 +6,22 @@ with open(env['PROJECT_TOOL_S']) as f:
     exec(f.read())
 
 SRCS = Glob('src/*.c*')
-INCLUDE = [ADir('.'), ADir('include')]
+INCLUDE = [ADir('.'), ADir('include'), ADir('hal')]
 PRIVATE_INCLUDE = []
+
+# nlohmann/json: check system path, then static_lib fallback
+import subprocess as _sp
+_has_nlj = False
+try:
+    _nlj_inc = _sp.check_output(['pkg-config', '--cflags', 'nlohmann_json'], text=True, stderr=_sp.DEVNULL).strip()
+    INCLUDE += [f.replace('-I','') for f in _nlj_inc.split() if f.startswith('-I')]
+    _has_nlj = True
+except Exception:
+    pass
+if not _has_nlj:
+    _nlj_fallback = ADir('../static_lib/usr/include')
+    if os.path.isdir(str(_nlj_fallback)):
+        INCLUDE += [_nlj_fallback]
 
 is_desktop_sdl = (platform.system() == 'Darwin') or ('CONFIG_V9_5_LV_USE_SDL' in os.environ)
 
@@ -29,7 +43,7 @@ else:
 
 STATIC_LIB = []
 DYNAMIC_LIB = []
-DEFINITIONS = []
+DEFINITIONS = ['-DHAL_PLATFORM_SDL=1'] if is_desktop_sdl else ['-DHAL_PLATFORM_LINUX=1']
 DEFINITIONS_PRIVATE = []
 LDFLAGS = []
 LINK_SEARCH_PATH = []
