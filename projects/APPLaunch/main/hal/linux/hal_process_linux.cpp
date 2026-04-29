@@ -13,12 +13,7 @@ extern "C" {
     extern volatile int LVGL_HOME_KEY_FLAGE;
 }
 
-/*
- * TCA8418 keyboard sends rapid DOWN+UP pairs even when held.
- * We count ESC presses: 5 presses within 5 seconds = kill child.
- */
-static const int ESC_KILL_COUNT = 5;
-static const int ESC_KILL_WINDOW_SEC = 5;
+static const int ESC_HOLD_SEC = 5;
 
 int hal_process_exec_blocking(const char *exec_path, volatile int *home_key_flag)
 {
@@ -31,9 +26,8 @@ int hal_process_exec_blocking(const char *exec_path, volatile int *home_key_flag
         _exit(127);
     }
 
-    int esc_count = 0;
-    auto esc_window_start = std::chrono::steady_clock::now();
-    bool prev_esc_state = false;
+    auto esc_down_since = std::chrono::steady_clock::time_point{};
+    bool esc_down = false;
     int status = 0;
 
     while (true) {
@@ -41,21 +35,15 @@ int hal_process_exec_blocking(const char *exec_path, volatile int *home_key_flag
         if (r > 0) break;
         if (r < 0) { status = -1; break; }
 
-        bool esc_now = LVGL_HOME_KEY_FLAGE != 0;
-        if (esc_now && !prev_esc_state) {
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-                now - esc_window_start).count();
-            if (elapsed > ESC_KILL_WINDOW_SEC) {
-                esc_count = 0;
-                esc_window_start = now;
+        if (LVGL_HOME_KEY_FLAGE) {
+            if (!esc_down) {
+                esc_down = true;
+                esc_down_since = std::chrono::steady_clock::now();
             }
-            esc_count++;
-            printf("[hal] ESC press #%d/%d (window %lds)\n",
-                   esc_count, ESC_KILL_COUNT, (long)elapsed);
-
-            if (esc_count >= ESC_KILL_COUNT) {
-                printf("[hal] ESC x%d, killing child %d\n", esc_count, pid);
+            auto held = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::steady_clock::now() - esc_down_since).count();
+            if (held >= ESC_HOLD_SEC) {
+                printf("[hal] ESC held %lds, killing %d\n", (long)held, pid);
                 kill(pid, SIGTERM);
                 auto t0 = std::chrono::steady_clock::now();
                 while (waitpid(pid, &status, WNOHANG) == 0) {
@@ -69,8 +57,9 @@ int hal_process_exec_blocking(const char *exec_path, volatile int *home_key_flag
                 }
                 break;
             }
+        } else {
+            esc_down = false;
         }
-        prev_esc_state = esc_now;
 
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
