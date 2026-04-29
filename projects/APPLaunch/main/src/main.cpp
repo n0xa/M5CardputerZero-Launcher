@@ -126,7 +126,9 @@ static void keypad_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
                 }
             }
 
-            printf("Read key event from queue: code=%u state=%u\n", elm->key_code, elm->key_state);
+            printf("key: code=%u state=%u keysym=%u codepoint=%u utf8=\"%s\" mods=0x%x sym=\"%s\"\n",
+                   elm->key_code, elm->key_state, elm->keysym, elm->codepoint,
+                   elm->utf8, elm->mods, elm->sym_name);
             lv_obj_t *root = lv_screen_active();
             if (root) {
                 lv_obj_send_event(root, (lv_event_code_t)LV_EVENT_KEYBOARD, elm);
