@@ -1,7 +1,6 @@
 #include "../hal_process.h"
 #include <unistd.h>
 #include <sys/wait.h>
-#include <sys/ioctl.h>
 #include <signal.h>
 #include <fcntl.h>
 #include <cstring>
@@ -9,39 +8,32 @@
 #include <cstdlib>
 #include <chrono>
 #include <thread>
-#include <linux/input.h>
 
 extern "C" {
-    extern void keyboard_pause(void);
-    extern void keyboard_resume(void);
+    extern volatile int LVGL_HOME_KEY_FLAGE;
 }
 
-static const char *get_kbd_device()
-{
-    const char *env = getenv("APPLAUNCH_LINUX_KEYBOARD_DEVICE");
-    return env ? env : "/dev/input/by-path/platform-3f804000.i2c-event";
-}
+/*
+ * TCA8418 keyboard sends rapid DOWN+UP pairs even when held.
+ * We count ESC presses: 5 presses within 5 seconds = kill child.
+ */
+static const int ESC_KILL_COUNT = 5;
+static const int ESC_KILL_WINDOW_SEC = 5;
 
 int hal_process_exec_blocking(const char *exec_path, volatile int *home_key_flag)
 {
     (void)home_key_flag;
 
-    keyboard_pause();
-
     pid_t pid = fork();
-    if (pid < 0) { keyboard_resume(); return -1; }
+    if (pid < 0) return -1;
     if (pid == 0) {
         execlp("/bin/sh", "sh", "-c", exec_path, (char *)NULL);
         _exit(127);
     }
 
-    int evfd = open(get_kbd_device(), O_RDONLY | O_NONBLOCK);
-    if (evfd >= 0) {
-        ioctl(evfd, EVIOCGRAB, 1);
-    }
-
-    auto home_pressed_since = std::chrono::steady_clock::time_point{};
-    bool home_held = false;
+    int esc_count = 0;
+    auto esc_window_start = std::chrono::steady_clock::now();
+    bool prev_esc_state = false;
     int status = 0;
 
     while (true) {
@@ -49,33 +41,26 @@ int hal_process_exec_blocking(const char *exec_path, volatile int *home_key_flag
         if (r > 0) break;
         if (r < 0) { status = -1; break; }
 
-        if (evfd >= 0) {
-            struct input_event ev;
-            while (read(evfd, &ev, sizeof(ev)) == (ssize_t)sizeof(ev)) {
-                if (ev.type == EV_KEY && ev.code == KEY_ESC) {
-                    if (ev.value == 1) {
-                        home_held = true;
-                        home_pressed_since = std::chrono::steady_clock::now();
-                        printf("[hal] ESC pressed\n");
-                    } else if (ev.value == 0) {
-                        home_held = false;
-                        printf("[hal] ESC released\n");
-                    }
-                }
+        bool esc_now = LVGL_HOME_KEY_FLAGE != 0;
+        if (esc_now && !prev_esc_state) {
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                now - esc_window_start).count();
+            if (elapsed > ESC_KILL_WINDOW_SEC) {
+                esc_count = 0;
+                esc_window_start = now;
             }
-        }
+            esc_count++;
+            printf("[hal] ESC press #%d/%d (window %lds)\n",
+                   esc_count, ESC_KILL_COUNT, (long)elapsed);
 
-        if (home_held) {
-            auto secs = std::chrono::duration_cast<std::chrono::seconds>(
-                std::chrono::steady_clock::now() - home_pressed_since).count();
-            if (secs >= 5) {
-                printf("[hal] ESC held %lds, SIGTERM %d\n", (long)secs, pid);
+            if (esc_count >= ESC_KILL_COUNT) {
+                printf("[hal] ESC x%d, killing child %d\n", esc_count, pid);
                 kill(pid, SIGTERM);
                 auto t0 = std::chrono::steady_clock::now();
                 while (waitpid(pid, &status, WNOHANG) == 0) {
                     if (std::chrono::duration_cast<std::chrono::seconds>(
                             std::chrono::steady_clock::now() - t0).count() >= 3) {
-                        printf("[hal] SIGKILL %d\n", pid);
                         kill(pid, SIGKILL);
                         waitpid(pid, &status, 0);
                         break;
@@ -85,16 +70,10 @@ int hal_process_exec_blocking(const char *exec_path, volatile int *home_key_flag
                 break;
             }
         }
+        prev_esc_state = esc_now;
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
-
-    if (evfd >= 0) {
-        ioctl(evfd, EVIOCGRAB, 0);
-        close(evfd);
-    }
-
-    keyboard_resume();
 
     if (WIFEXITED(status)) return WEXITSTATUS(status);
     return -1;
