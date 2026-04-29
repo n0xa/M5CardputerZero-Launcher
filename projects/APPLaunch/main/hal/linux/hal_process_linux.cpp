@@ -10,16 +10,17 @@
 #include <thread>
 #include <linux/input.h>
 
-extern volatile int LVGL_HOME_KEY_FLAGE;
+extern "C" {
+    extern volatile int LVGL_HOME_KEY_FLAGE;
+    extern void keyboard_pause(void);
+    extern void keyboard_resume(void);
+}
 
 static const char *get_kbd_device()
 {
     const char *env = getenv("APPLAUNCH_LINUX_KEYBOARD_DEVICE");
     return env ? env : "/dev/input/by-path/platform-3f804000.i2c-event";
 }
-
-extern void keyboard_pause(void);
-extern void keyboard_resume(void);
 
 int hal_process_exec_blocking(const char *exec_path, volatile int *home_key_flag)
 {
