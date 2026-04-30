@@ -222,6 +222,10 @@ private:
     bool terminal_active = false;
     bool waiting_key_to_exit = false;
 
+    /* ESC long-press state — per-instance so it resets on every page open */
+    int esc_hold_state = 0;
+    std::chrono::time_point<std::chrono::steady_clock> esc_hold_start;
+
     /* ================================================================== */
     /*  初始化                                                              */
     /* ================================================================== */
@@ -355,39 +359,31 @@ private:
     static void s_cursor_blink_cb(lv_timer_t *t)
     {
         auto self = (UIConsolePage *)lv_timer_get_user_data(t);
-        if (self)
-            self->vt100_cursor_blink_cb(t);
+        if (!self) return;
+        self->vt100_cursor_blink_cb(t);
 
-        static int end_status = 0;
-        static std::chrono::time_point<std::chrono::steady_clock> start_time;
-        static std::chrono::time_point<std::chrono::steady_clock> end_time;
-        pid_t pid_ret;
-        if (end_status == 0)
-        {
-            if (LVGL_HOME_KEY_FLAGE)
-            {
-                end_status = 1;
-                start_time = std::chrono::steady_clock::now();
+        /* ESC-held-5s → kill PTY and go home. State is per-instance so it
+         * can't bleed across pages (the old static-local bug made Claw
+         * inherit a stale "ESC has been down for >5s" state from earlier
+         * ESC presses on other screens, causing immediate auto-exit). */
+        if (self->esc_hold_state == 0) {
+            if (LVGL_HOME_KEY_FLAGE) {
+                self->esc_hold_state = 1;
+                self->esc_hold_start = std::chrono::steady_clock::now();
             }
-        }
-        if (end_status == 1)
-        {
-            if (LVGL_HOME_KEY_FLAGE)
-            {
-                end_time = std::chrono::steady_clock::now();
-                if (std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count() >= 5)
-                {
-                    end_status = 0;
+        } else {
+            if (LVGL_HOME_KEY_FLAGE) {
+                auto elapsed = std::chrono::steady_clock::now() - self->esc_hold_start;
+                if (std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() >= 5) {
+                    self->esc_hold_state = 0;
                     printf("[CONSOLE] ESC held 5s -> kill PTY and go back home\n");
                     self->stop_pty();
                     self->terminal_active = false;
                     if (self->go_back_home)
                         self->go_back_home();
                 }
-            }
-            else
-            {
-                end_status = 0;
+            } else {
+                self->esc_hold_state = 0;
             }
         }
     }
