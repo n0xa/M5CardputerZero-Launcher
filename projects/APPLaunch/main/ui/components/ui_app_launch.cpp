@@ -201,7 +201,7 @@ public:
             app a{"SHUTDOWN", img_path("SETTING_logo.png"), "", false};
             a.launch = [](app_launch_S *ctx) {
                 char snd[256];
-                snprintf(snd, sizeof(snd), "%s/shutdown.wav", hal_path_images_dir());
+                snprintf(snd, sizeof(snd), "%s/shutdown.mp3", hal_path_images_dir());
                 hal_audio_play_sync(snd);
                 hal_system_shutdown();
             };
@@ -211,7 +211,7 @@ public:
             app a{"REBOOT", img_path("SETTING_logo.png"), "", false};
             a.launch = [](app_launch_S *ctx) {
                 char snd[256];
-                snprintf(snd, sizeof(snd), "%s/shutdown.wav", hal_path_images_dir());
+                snprintf(snd, sizeof(snd), "%s/shutdown.mp3", hal_path_images_dir());
                 hal_audio_play_sync(snd);
                 hal_system_reboot();
             };

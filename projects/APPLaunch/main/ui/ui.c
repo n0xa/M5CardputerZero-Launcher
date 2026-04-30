@@ -166,6 +166,13 @@ void home_screen_load()
     static char _startup_snd[256];
     snprintf(_startup_snd, sizeof(_startup_snd), "%s/startup.mp3", hal_path_images_dir());
     hal_audio_play(_startup_snd);
+
+    static int click_inited = 0;
+    if (!click_inited) {
+        char _click[256];
+        snprintf(_click, sizeof(_click), "%s/keyclick.wav", hal_path_images_dir());
+        if (hal_audio_click_init(_click) == 0) click_inited = 1;
+    }
 }
 
 void ui_event_logo_over(lv_event_t * e) {

@@ -7,6 +7,7 @@
 
 static int g_audio_ready = 0;
 static Mix_Music *g_music = NULL;
+static Mix_Chunk *g_click_chunk = NULL;
 
 void hal_audio_init(void)
 {
@@ -75,6 +76,32 @@ void hal_audio_play_sync(const char *path)
     }
 }
 
+int hal_audio_click_init(const char *wav_path)
+{
+    if (!g_audio_ready) hal_audio_init();
+    if (!g_audio_ready) return -1;
+    if (g_click_chunk) return 0;
+    g_click_chunk = Mix_LoadWAV(wav_path);
+    if (!g_click_chunk) {
+        fprintf(stderr, "[CLICK] LoadWAV %s: %s\n", wav_path, Mix_GetError());
+        return -1;
+    }
+    Mix_AllocateChannels(8);   /* allow 8 overlapping clicks */
+    printf("[CLICK] loaded %s (SDL_mixer)\n", wav_path);
+    return 0;
+}
+
+void hal_audio_click_play(void)
+{
+    if (!g_click_chunk) return;
+    Mix_PlayChannel(-1, g_click_chunk, 0);
+}
+
+void hal_audio_click_deinit(void)
+{
+    if (g_click_chunk) { Mix_FreeChunk(g_click_chunk); g_click_chunk = NULL; }
+}
+
 #else
 
 void hal_audio_init(void) {}
@@ -82,5 +109,8 @@ void hal_audio_play(const char *path) { (void)path; }
 void hal_audio_play_sync(const char *path) { (void)path; }
 void hal_audio_stop(void) {}
 void hal_audio_deinit(void) {}
+int  hal_audio_click_init(const char *p) { (void)p; return -1; }
+void hal_audio_click_play(void) {}
+void hal_audio_click_deinit(void) {}
 
 #endif

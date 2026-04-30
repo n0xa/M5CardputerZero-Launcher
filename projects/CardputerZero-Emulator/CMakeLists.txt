@@ -308,7 +308,6 @@ add_custom_command(TARGET cardputer-zero-emu POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${APPLAUNCH}/ui/images $<TARGET_FILE_DIR:cardputer-zero-emu>/images
     COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:cardputer-zero-emu>/assets
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/assets/device_skin.png $<TARGET_FILE_DIR:cardputer-zero-emu>/assets/device_skin.png
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/assets/startup.mp3 $<TARGET_FILE_DIR:cardputer-zero-emu>/assets/startup.mp3
     COMMENT "Copying apps and resources"
 )
 if(TARGET APPLaunch)
