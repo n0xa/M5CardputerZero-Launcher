@@ -107,6 +107,11 @@ int hal_process_exec_blocking(const char *exec_path, volatile int *home_key_flag
     if (pid == 0) {
         close(evfd);
         close(uifd);
+        // Put child in its own session/process group so any grandchildren it
+        // forks (e.g. a wrapper script launching a GUI binary) can be killed
+        // together via killpg(). Without setsid() a SIGKILL on the shell
+        // leaves orphaned children writing to the framebuffer.
+        setsid();
         execlp("/bin/sh", "sh", "-c", exec_path, (char *)NULL);
         _exit(127);
     }
@@ -149,14 +154,17 @@ int hal_process_exec_blocking(const char *exec_path, volatile int *home_key_flag
             auto held_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - esc_down_since).count();
             if (held_ms >= ESC_HOLD_SEC * 1000) {
-                printf("[hal] ESC held %ldms, SIGTERM %d\n", (long)held_ms, pid);
-                kill(pid, SIGTERM);
+                // Child was launched with setsid(), so its pid == pgid.
+                // killpg() targets the entire process group so any
+                // wrapper-spawned grandchildren (e.g. NC2000) die too.
+                printf("[hal] ESC held %ldms, SIGTERM pgrp %d\n", (long)held_ms, pid);
+                killpg(pid, SIGTERM);
                 auto t0 = std::chrono::steady_clock::now();
                 while (waitpid(pid, &status, WNOHANG) == 0) {
                     if (std::chrono::duration_cast<std::chrono::seconds>(
                             std::chrono::steady_clock::now() - t0).count() >= 3) {
-                        printf("[hal] SIGKILL %d\n", pid);
-                        kill(pid, SIGKILL);
+                        printf("[hal] SIGKILL pgrp %d\n", pid);
+                        killpg(pid, SIGKILL);
                         waitpid(pid, &status, 0);
                         break;
                     }
@@ -202,14 +210,24 @@ int hal_process_check_lock(const char *lock_path, int *holder_pid)
 void hal_process_kill(int pid, int grace_ms)
 {
     if (pid <= 0) return;
-    kill(pid, SIGINT);
+    // pid here is the session/pgid leader (spawned with setsid()).
+    // Use killpg() so children the app forked are killed too, and
+    // escalate SIGINT -> SIGTERM -> SIGKILL because GUI apps like the
+    // NC2000 (文曲星) emulator commonly mask SIGINT.
+    killpg(pid, SIGINT);
     auto start = std::chrono::steady_clock::now();
+    bool term_sent = false;
     while (true) {
         int status;
         if (waitpid(pid, &status, WNOHANG) != 0) return;
         auto now = std::chrono::steady_clock::now();
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count() >= grace_ms) {
-            kill(pid, SIGKILL);
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+        if (!term_sent && elapsed >= grace_ms / 2) {
+            killpg(pid, SIGTERM);
+            term_sent = true;
+        }
+        if (elapsed >= grace_ms) {
+            killpg(pid, SIGKILL);
             waitpid(pid, &status, 0);
             return;
         }
@@ -222,6 +240,9 @@ hal_pid_t hal_process_spawn(const char *exec_path)
     pid_t pid = fork();
     if (pid < 0) return -1;
     if (pid == 0) {
+        // New session/process group so hal_process_stop() can killpg()
+        // the whole tree.
+        setsid();
         execlp("/bin/sh", "sh", "-c", exec_path, (char *)NULL);
         _exit(127);
     }
@@ -231,7 +252,9 @@ hal_pid_t hal_process_spawn(const char *exec_path)
 void hal_process_stop(hal_pid_t pid)
 {
     if (pid <= 0) return;
-    kill((pid_t)pid, SIGTERM);
+    // pid is the pgid (child was spawned with setsid()); kill the
+    // whole group so forked grandchildren go down too.
+    killpg((pid_t)pid, SIGTERM);
     int status;
     waitpid((pid_t)pid, &status, WNOHANG);
 }
