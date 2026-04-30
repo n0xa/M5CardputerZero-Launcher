@@ -444,7 +444,14 @@ private:
     {
         // Hostname
         char hostname[128] = "unknown";
+#ifdef _WIN32
+        // gethostname() lives in <winsock2.h> on Windows and requires
+        // WSAStartup + linking ws2_32. Not worth pulling in for the
+        // emulator build — just show a stub.
+        snprintf(hostname, sizeof(hostname), "N/A");
+#else
         gethostname(hostname, sizeof(hostname));
+#endif
         char host_buf[160];
         snprintf(host_buf, sizeof(host_buf), "Hostname: %s", hostname);
         make_label(c, host_buf, 0, 2, 0x58A6FF);
@@ -564,6 +571,14 @@ private:
         make_label(ping_result_cont_, "Pinging...", 4, 4, 0x7EA8D8);
         lv_refr_now(NULL);
 
+#ifdef _WIN32
+        // popen + `ping -c N -W N` is POSIX-only. MinGW has _popen but
+        // Windows ping uses different flags. Skip the feature on the
+        // emulator build — this tool isn't meaningful there anyway.
+        lv_obj_clean(ping_result_cont_);
+        make_label(ping_result_cont_, "Ping: Unavailable on this build", 4, 4, 0x888888);
+        return;
+#else
         char cmd[256];
         snprintf(cmd, sizeof(cmd), "ping -c 4 -W 2 %s 2>&1", ping_host_buf_.c_str());
 
@@ -614,6 +629,7 @@ private:
             make_label(ping_result_cont_, display_line.c_str(), 4, y, color, &lv_font_montserrat_10);
             y += 13;
         }
+#endif // _WIN32
     }
 
     void handle_ping_key(uint32_t key)
