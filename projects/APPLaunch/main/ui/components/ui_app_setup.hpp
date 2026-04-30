@@ -14,6 +14,8 @@
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 #include "hal/hal_settings.h"
+#include "hal/hal_audio.h"
+#include "hal/hal_process.h"
 
 // ============================================================
 //  系统设置界面  UISetupPage
@@ -98,8 +100,11 @@ private:
     lv_obj_t *pwr_cap_lbl_  = nullptr;
     lv_obj_t *pwr_hint_lbl_ = nullptr;
     lv_obj_t *pwr_calib_row_ = nullptr;
+    lv_obj_t *pwr_shutdown_btn_ = nullptr;
+    lv_obj_t *pwr_reboot_btn_ = nullptr;
     lv_timer_t *pwr_timer_ = nullptr;
     bool power_in_calib_ = false;
+    int  power_menu_idx_ = 0;   /* 0=Calib, 1=Shutdown, 2=Reboot */
 
     // ---- Battery monitor sub-page labels ----
     lv_obj_t *bqmon_line_lbl_   = nullptr;
@@ -648,20 +653,54 @@ private:
         lv_obj_set_width(pwr_cap_lbl_, 258);
         lv_label_set_long_mode(pwr_cap_lbl_, LV_LABEL_LONG_CLIP);
 
+        /* Three action buttons in a row at y=108: Calib / Shutdown / Reboot */
         pwr_calib_row_ = lv_obj_create(c);
-        lv_obj_set_size(pwr_calib_row_, 294, 18);
+        lv_obj_set_size(pwr_calib_row_, 96, 16);
         lv_obj_set_pos(pwr_calib_row_, 0, 108);
         lv_obj_set_style_radius(pwr_calib_row_, 3, LV_PART_MAIN | LV_STATE_DEFAULT);
         lv_obj_set_style_border_width(pwr_calib_row_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
         lv_obj_set_style_pad_all(pwr_calib_row_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_bg_color(pwr_calib_row_, lv_color_hex(0x1F3A5F), LV_PART_MAIN | LV_STATE_DEFAULT);
         lv_obj_set_style_bg_opa(pwr_calib_row_, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
         lv_obj_clear_flag(pwr_calib_row_, LV_OBJ_FLAG_SCROLLABLE);
-        make_label(pwr_calib_row_, LV_SYMBOL_RIGHT " Battery Calib", 5, 1, 0xFFFFFF, &lv_font_montserrat_10);
+        make_label(pwr_calib_row_, "Calib", 5, 1, 0xFFFFFF, &lv_font_montserrat_10);
 
-        pwr_hint_lbl_ = make_label(c, "Auto refresh 1s   ENTER: calib   ESC: back", 0, 130, 0x6E7681, &lv_font_montserrat_10);
+        pwr_shutdown_btn_ = lv_obj_create(c);
+        lv_obj_set_size(pwr_shutdown_btn_, 96, 16);
+        lv_obj_set_pos(pwr_shutdown_btn_, 100, 108);
+        lv_obj_set_style_radius(pwr_shutdown_btn_, 3, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_border_width(pwr_shutdown_btn_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_pad_all(pwr_shutdown_btn_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(pwr_shutdown_btn_, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_clear_flag(pwr_shutdown_btn_, LV_OBJ_FLAG_SCROLLABLE);
+        make_label(pwr_shutdown_btn_, LV_SYMBOL_POWER " Shutdown", 5, 1, 0xFFFFFF, &lv_font_montserrat_10);
+
+        pwr_reboot_btn_ = lv_obj_create(c);
+        lv_obj_set_size(pwr_reboot_btn_, 96, 16);
+        lv_obj_set_pos(pwr_reboot_btn_, 200, 108);
+        lv_obj_set_style_radius(pwr_reboot_btn_, 3, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_border_width(pwr_reboot_btn_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_pad_all(pwr_reboot_btn_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(pwr_reboot_btn_, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_clear_flag(pwr_reboot_btn_, LV_OBJ_FLAG_SCROLLABLE);
+        make_label(pwr_reboot_btn_, LV_SYMBOL_REFRESH " Reboot", 5, 1, 0xFFFFFF, &lv_font_montserrat_10);
+
+        power_menu_idx_ = 0;
+        power_refresh_menu_highlight();
+
+        pwr_hint_lbl_ = make_label(c, "L/R:select  ENTER:confirm  ESC:back", 0, 128, 0x6E7681, &lv_font_montserrat_10);
         refresh_power_page();
         pwr_timer_ = lv_timer_create(UISetupPage::power_timer_cb, 1000, this);
+    }
+
+    void power_refresh_menu_highlight()
+    {
+        lv_obj_t *btns[3] = { pwr_calib_row_, pwr_shutdown_btn_, pwr_reboot_btn_ };
+        for (int i = 0; i < 3; i++) {
+            if (!btns[i]) continue;
+            uint32_t bg = (i == power_menu_idx_) ? 0x1F6FEB : 0x1F3A5F;
+            lv_obj_set_style_bg_color(btns[i], lv_color_hex(bg),
+                                       LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
     }
 
     static void power_timer_cb(lv_timer_t *timer)
@@ -694,8 +733,31 @@ private:
             return;
         }
         switch (key) {
+        case KEY_LEFT:
+        case KEY_Z:
+            if (power_menu_idx_ > 0) power_menu_idx_--;
+            power_refresh_menu_highlight();
+            break;
+        case KEY_RIGHT:
+        case KEY_C:
+            if (power_menu_idx_ < 2) power_menu_idx_++;
+            power_refresh_menu_highlight();
+            break;
         case KEY_ENTER:
-            open_power_calib_page();
+            if (power_menu_idx_ == 0) {
+                open_power_calib_page();
+            } else if (power_menu_idx_ == 1) {
+                /* Shutdown: play chime synchronously, then power off */
+                char snd[256];
+                snprintf(snd, sizeof(snd), "%s/shutdown.mp3", hal_path_images_dir());
+                hal_audio_play_sync(snd);
+                hal_system_shutdown();
+            } else if (power_menu_idx_ == 2) {
+                char snd[256];
+                snprintf(snd, sizeof(snd), "%s/shutdown.mp3", hal_path_images_dir());
+                hal_audio_play_sync(snd);
+                hal_system_reboot();
+            }
             break;
         case KEY_ESC:
             close_sub_page();

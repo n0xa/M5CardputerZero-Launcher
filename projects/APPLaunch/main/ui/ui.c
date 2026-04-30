@@ -163,9 +163,16 @@ void home_screen_load()
     lv_disp_load_scr(ui_Screen1);
     lv_indev_set_group(lv_indev_get_next(NULL), Screen1group);
 
-    static char _startup_snd[256];
-    snprintf(_startup_snd, sizeof(_startup_snd), "%s/startup.mp3", hal_path_images_dir());
-    hal_audio_play(_startup_snd);
+    /* Play the startup chime only on the very first entry to home,
+     * i.e. right after boot / after the GIF finishes. Do not replay
+     * when returning from an app. */
+    static int startup_sound_played = 0;
+    if (!startup_sound_played) {
+        startup_sound_played = 1;
+        static char _startup_snd[256];
+        snprintf(_startup_snd, sizeof(_startup_snd), "%s/startup.mp3", hal_path_images_dir());
+        hal_audio_play(_startup_snd);
+    }
 }
 
 void ui_event_logo_over(lv_event_t * e) {
