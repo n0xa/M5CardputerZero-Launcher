@@ -285,6 +285,7 @@ void switchzuo(lv_event_t *e)
 
 void go_back_home(lv_event_t *e)
 {
+    printf("[EVENT] go_back_home(lv_event_t) called\n");
     lv_disp_load_scr(ui_Screen1);
     lv_indev_set_group(lv_indev_get_next(NULL), Screen1group);
 }

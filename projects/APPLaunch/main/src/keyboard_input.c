@@ -602,6 +602,7 @@ static void kbd_wake_up(struct kbd_ctx *kc) {
  *  线程主循环
  * ============================================================ */
 void *keyboard_read_thread(void *argv) {
+    printf("[KBD-THREAD] keyboard_read_thread started\n");
     STAILQ_INIT(&keyboard_queue);
 
     const char *device_path = argv ? (const char *)argv

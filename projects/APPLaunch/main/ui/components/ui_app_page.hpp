@@ -109,6 +109,8 @@ public:
     static void home_battery_event_cb(lv_event_t *e)
     {
         home_base *self = static_cast<home_base *>(lv_event_get_user_data(e));
+        printf("[EVENT home_battery] self=%p code=%d\n",
+               (void*)self, (int)lv_event_get_code(e));
         if (!self || lv_event_get_code(e) != LV_EVENT_BATTERY) return;
         const hal_battery_info_t *bat = LV_EVENT_BATTERY_GET_INFO(e);
         if (bat) self->update_battery_status(*bat);
@@ -117,6 +119,7 @@ public:
     static void home_status_timer_cb(lv_timer_t *timer)
     {
         home_base *self = static_cast<home_base *>(lv_timer_get_user_data(timer));
+        printf("[TIMER page home_status] tick self=%p\n", (void*)self);
         if (self) self->update_status_bar();
     }
 
@@ -258,6 +261,8 @@ public:
     static void app_battery_event_cb(lv_event_t *e)
     {
         app_base *self = static_cast<app_base *>(lv_event_get_user_data(e));
+        printf("[EVENT app_battery] self=%p code=%d exp=%u\n",
+               (void*)self, (int)lv_event_get_code(e), (unsigned)LV_EVENT_BATTERY);
         if (!self || lv_event_get_code(e) != LV_EVENT_BATTERY) return;
         const hal_battery_info_t *bat = LV_EVENT_BATTERY_GET_INFO(e);
         if (bat) self->update_battery_status(*bat);
@@ -266,6 +271,7 @@ public:
     static void app_status_timer_cb(lv_timer_t *timer)
     {
         app_base *self = static_cast<app_base *>(lv_timer_get_user_data(timer));
+        printf("[TIMER app_status] tick self=%p\n", (void*)self);
         if (self) self->update_status_bar();
     }
 

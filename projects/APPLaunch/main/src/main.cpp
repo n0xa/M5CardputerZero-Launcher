@@ -33,6 +33,8 @@ static void battery_timer_cb(lv_timer_t *timer)
     lv_battery_event_data_t data;
     memset(&data, 0, sizeof(data));
     data.info = hal_battery_read();
+    printf("[TIMER battery] tick root=%p soc=%d valid=%d\n",
+           (void*)root, data.info.soc, (int)data.info.valid);
     lv_obj_send_event(root, (lv_event_code_t)LV_EVENT_BATTERY, &data);
 }
 
@@ -273,13 +275,21 @@ void APPLaunch_lock()
 {
     static int home_back_status = 0;
     static std::chrono::time_point<std::chrono::steady_clock> start_time;
+    static int last_logged_holder = -1;
+    static int last_logged_run_flag = -1;
 
     int holder_pid = 0;
     hal_process_check_lock(lock_file, &holder_pid);
 
     static int lvgl_lock = 0;
+    if (holder_pid != last_logged_holder) {
+        printf("[LOCK] holder_pid %d -> %d (self=%d lvgl_lock=%d run_flag=%d)\n",
+               last_logged_holder, holder_pid, getpid(), lvgl_lock, LVGL_RUN_FLAGE);
+        last_logged_holder = holder_pid;
+    }
     if (holder_pid == 0) {
         if (lvgl_lock == 1) {
+            printf("[LOCK] release: resume LVGL, invalidate screen\n");
             LVGL_RUN_FLAGE = 1;
             lvgl_lock = 0;
             lv_obj_invalidate(lv_scr_act());
@@ -289,24 +299,36 @@ void APPLaunch_lock()
             if (home_back_status == 0) {
                 home_back_status = 1;
                 start_time = std::chrono::steady_clock::now();
+                printf("[LOCK] ESC down while holder=%d, start 5s kill timer\n", holder_pid);
             }
             auto elapsed = std::chrono::steady_clock::now() - start_time;
             auto secs = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
             if (secs >= 5) {
+                printf("[LOCK] ESC held 5s -> hal_process_kill(%d)\n", holder_pid);
                 hal_process_kill(holder_pid, 3000);
                 home_back_status = 0;
             }
         } else {
             home_back_status = 0;
         }
+        if (lvgl_lock == 0) {
+            printf("[LOCK] acquire: pause LVGL (holder=%d)\n", holder_pid);
+        }
         lvgl_lock = 1;
         LVGL_RUN_FLAGE = 0;
+    }
+    if (LVGL_RUN_FLAGE != last_logged_run_flag) {
+        printf("[LOCK] LVGL_RUN_FLAGE -> %d\n", LVGL_RUN_FLAGE);
+        last_logged_run_flag = LVGL_RUN_FLAGE;
     }
 }
 
 
 int main(void)
 {
+    setvbuf(stdout, NULL, _IOLBF, 0);
+    setvbuf(stderr, NULL, _IOLBF, 0);
+    printf("[MAIN] APPLaunch starting pid=%d\n", getpid());
 
     lock_file = hal_path_lock_file();
 
@@ -324,11 +346,16 @@ int main(void)
     ui_init();
     // lv_demo_widgets(); // 用LVGL自带demo测试
     /*Handle LVGL tasks*/
-    printf("Entering main loop...\n");
+    printf("Entering main loop... (pid=%d)\n", getpid());
+    unsigned long _loop_i = 0;
     while(1) {
         APPLaunch_lock();
         lv_timer_handler();
         usleep(1000);
+        if ((++_loop_i % 5000) == 0) {
+            printf("[MAIN] heartbeat iter=%lu active_screen=%p run_flag=%d\n",
+                   _loop_i, (void*)lv_screen_active(), LVGL_RUN_FLAGE);
+        }
     }
 
     return 0;

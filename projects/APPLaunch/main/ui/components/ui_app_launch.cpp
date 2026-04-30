@@ -230,14 +230,17 @@ public:
     static void lv_go_back_home(void *arg)
     {
         auto self = (app_launch_S *)arg;
-        printf("[HOME] lv_go_back_home executing (page=%p)\n", self->app_Page.get());
+        printf("[HOME] lv_go_back_home START page=%p caller_tid=unknown\n", self->app_Page.get());
         lv_timer_enable(true);
         lv_indev_set_group(lv_indev_get_next(NULL), Screen1group);
+        printf("[HOME] lv_disp_load_scr(ui_Screen1)\n");
         lv_disp_load_scr(ui_Screen1);
         lv_refr_now(NULL);
-        if (self->app_Page)
+        if (self->app_Page) {
+            printf("[HOME] app_Page.reset() (destroy page)\n");
             self->app_Page.reset();
-        printf("[HOME] lv_go_back_home done, on launcher home\n");
+        }
+        printf("[HOME] lv_go_back_home DONE, on launcher home\n");
     }
 
     void go_back_home()
@@ -503,6 +506,8 @@ public:
     // ============================================================
     void applications_reload()
     {
+        printf("[TIMER watch] applications_reload START fixed=%d curr_size=%d\n",
+               fixed_count, (int)app_list.size());
         int sz = (int)app_list.size();
         if (sz > fixed_count)
         {
@@ -511,6 +516,7 @@ public:
         }
         applications_load();
         refresh_ui_panels();
+        printf("[TIMER watch] applications_reload DONE size=%d\n", (int)app_list.size());
     }
 
     // ============================================================
@@ -519,6 +525,7 @@ public:
     static void home_status_timer_cb(lv_timer_t *timer)
     {
         auto *self = static_cast<app_launch_S *>(lv_timer_get_user_data(timer));
+        printf("[TIMER home_status] tick self=%p\n", (void*)self);
         if (self) self->update_home_status_bar();
     }
 
@@ -615,8 +622,10 @@ app::app(std::string name,
          * defeats the whole point. */
         ui_loading_show("Loading...");
         lv_refr_now(NULL);
+        printf("[SCREEN] launch builtin page: constructing PageT\n");
         auto p = std::make_shared<PageT>();
         self->app_Page = p;
+        printf("[SCREEN] load page ui_root=%p\n", (void*)p->get_ui());
         lv_disp_load_scr(p->get_ui());
         lv_indev_set_group(lv_indev_get_next(NULL),
                            p->get_key_group());
@@ -625,6 +634,7 @@ app::app(std::string name,
         /* Page is now attached and drawable; hide the overlay. The
          * next LVGL frame will paint the new page without it. */
         ui_loading_hide();
+        printf("[SCREEN] page attached, overlay hidden\n");
     };
 }
 
