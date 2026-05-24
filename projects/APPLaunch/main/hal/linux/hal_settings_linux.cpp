@@ -73,6 +73,30 @@ static double bqmon_temp_c(long temp)
     return c;
 }
 
+/* The bq27220 on M5CZ ships with an uncalibrated data flash (DesignCapacity
+ * set to TI's 3000 mAh eval-kit default vs the FLY 103040 cell's actual
+ * 1200 mAh), so the chip's SOC register is junk. Estimate from open-circuit
+ * voltage instead — accurate at rest, pessimistic by ~5-10 pts under load. */
+static int soc_from_voltage_mv(int mv)
+{
+    static const struct { int mv; int pct; } curve[] = {
+        { 4200, 100 }, { 4100, 90 }, { 4000, 80 }, { 3900, 65 },
+        { 3800, 50 },  { 3700, 35 }, { 3600, 20 }, { 3500, 10 },
+        { 3400, 5 },   { 3300, 2 },  { 3200, 0 },
+    };
+    const int n = (int)(sizeof(curve) / sizeof(curve[0]));
+    if (mv >= curve[0].mv)     return 100;
+    if (mv <= curve[n-1].mv)   return 0;
+    for (int i = 1; i < n; i++) {
+        if (mv >= curve[i].mv) {
+            int dv = curve[i-1].mv - curve[i].mv;
+            int dp = curve[i-1].pct - curve[i].pct;
+            return curve[i].pct + (mv - curve[i].mv) * dp / dv;
+        }
+    }
+    return 0;
+}
+
 static int bqmon_has_file(const char *dir, const char *name)
 {
     char path[320];
@@ -143,8 +167,8 @@ hal_battery_info_t hal_battery_read(void)
             double current_ma = bqmon_current_ma(current_raw);
             double temp_c = bqmon_temp_c(temp_raw);
 
-            info.soc = (int)capacity;
             info.voltage_mv = (int)(voltage_uv / 1000);
+            info.soc = soc_from_voltage_mv(info.voltage_mv);
             info.current_ma = (int)(current_ma >= 0 ? current_ma + 0.5 : current_ma - 0.5);
             info.avg_current_ma = info.current_ma;
             info.temperature_c10 = (int)(temp_c >= 0 ? temp_c * 10.0 + 0.5 : temp_c * 10.0 - 0.5);
@@ -161,7 +185,7 @@ hal_battery_info_t hal_battery_read(void)
     v = bq27220_read_word(fd, 0x08); if (v >= 0) info.voltage_mv = v;
     v = bq27220_read_word(fd, 0x0C); if (v >= 0) info.current_ma = (v > 32767) ? v - 65536 : v;
     v = bq27220_read_word(fd, 0x06); if (v >= 0) info.temperature_c10 = v - 2731;
-    v = bq27220_read_word(fd, 0x2C); if (v >= 0) info.soc = v;
+    info.soc = soc_from_voltage_mv(info.voltage_mv);
     v = bq27220_read_word(fd, 0x10); if (v >= 0) info.remain_mah = v;
     v = bq27220_read_word(fd, 0x12); if (v >= 0) info.full_mah = v;
     v = bq27220_read_word(fd, 0x0E); if (v >= 0) info.flags = v;
